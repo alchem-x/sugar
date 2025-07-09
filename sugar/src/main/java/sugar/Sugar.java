@@ -38,7 +38,7 @@ public abstract class Sugar {
 
     public static <T extends Closeable> void use(T t, @NotNull Sugar.ActionThrowsException block) {
         invoke(() -> {
-            try (T _t = t) {
+            try (T _ = t) {
                 block.invoke();
             }
         });
@@ -46,7 +46,7 @@ public abstract class Sugar {
 
     public static <T1 extends Closeable, T2 extends Closeable> void use(T1 t1, T2 t2, @NotNull Sugar.ActionThrowsException block) {
         invoke(() -> {
-            try (T1 _t1 = t1; T2 _t2 = t2) {
+            try (T1 _1 = t1; T2 _2 = t2) {
                 block.invoke();
             }
         });
@@ -106,8 +106,8 @@ public abstract class Sugar {
 
     public static <T> List<T> distinct(Collection<T> list, @NotNull Function<? super T, ?> keyExtractor) {
         Set<Object> seen = new HashSet<>();
-        return filter(list, t -> {
-            Object key = keyExtractor.apply(t);
+        return filter(list, (it) -> {
+            Object key = keyExtractor.apply(it);
             if (seen.contains(key)) {
                 return false;
             } else {
