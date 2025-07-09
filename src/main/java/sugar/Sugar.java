@@ -1,4 +1,4 @@
-package org.jianzhao.sugar;
+package sugar;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -15,15 +15,12 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * 勉强增加一点Java☕的甜度
+ * 增加一点Java☕的甜度
  *
  * @author cbdyzj
  * @since 2020.8.4
  */
-public class Sugar {
-
-    Sugar() {
-    }
+public abstract class Sugar {
 
     public static void println(Object o) {
         System.out.println(o);
@@ -33,14 +30,13 @@ public class Sugar {
         System.out.printf(format, args);
     }
 
-    public static <T> void with(T target, @NotNull CTE<T> block) {
-        if (target == null) {
-            return;
+    public static <T> void with(T target, @NotNull Sugar.ConsumerThrowsException<T> block) {
+        if (target != null) {
+            invoke(() -> block.invoke(target));
         }
-        invoke(() -> block.invoke(target));
     }
 
-    public static <T extends Closeable> void use(T t, @NotNull ATE block) {
+    public static <T extends Closeable> void use(T t, @NotNull Sugar.ActionThrowsException block) {
         invoke(() -> {
             try (T _t = t) {
                 block.invoke();
@@ -48,7 +44,7 @@ public class Sugar {
         });
     }
 
-    public static <T1 extends Closeable, T2 extends Closeable> void use(T1 t1, T2 t2, @NotNull ATE block) {
+    public static <T1 extends Closeable, T2 extends Closeable> void use(T1 t1, T2 t2, @NotNull Sugar.ActionThrowsException block) {
         invoke(() -> {
             try (T1 _t1 = t1; T2 _t2 = t2) {
                 block.invoke();
@@ -56,7 +52,7 @@ public class Sugar {
         });
     }
 
-    public static <L extends Lock> void use(L l, @NotNull ATE block) {
+    public static <L extends Lock> void use(L l, @NotNull Sugar.ActionThrowsException block) {
         l.lock();
         try {
             invoke(block);
@@ -80,30 +76,32 @@ public class Sugar {
     public static <T, R> List<R> map(Collection<T> list, @NotNull Function<? super T, ? extends R> mapper) {
         if (isEmpty(list)) {
             return new ArrayList<>();
+        } else {
+            return list.stream().map(mapper).collect(Collectors.toList());
         }
-        return list.stream().map(mapper).collect(Collectors.toList());
     }
 
     public static <T> void forEach(Collection<T> list, @NotNull Consumer<? super T> action) {
-        if (isEmpty(list)) {
-            return;
+        if (!isEmpty(list)) {
+            list.forEach(action);
         }
-        list.forEach(action);
     }
 
     public static <T> @Nullable T findFirst(@Nullable Collection<T> list, @NotNull Predicate<? super T> predicate) {
         if (isEmpty(list)) {
             return null;
+        } else {
+            Optional<T> ot = list.stream().filter(predicate).findFirst();
+            return ot.orElse(null);
         }
-        Optional<T> ot = list.stream().filter(predicate).findFirst();
-        return ot.orElse(null);
     }
 
     public static <T> boolean every(@Nullable Collection<T> list, @NotNull Predicate<? super T> predicate) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().allMatch(predicate);
+        } else {
             return false;
         }
-        return list.stream().allMatch(predicate);
     }
 
     public static <T> List<T> distinct(Collection<T> list, @NotNull Function<? super T, ?> keyExtractor) {
@@ -112,50 +110,55 @@ public class Sugar {
             Object key = keyExtractor.apply(t);
             if (seen.contains(key)) {
                 return false;
+            } else {
+                seen.add(key);
+                return true;
             }
-            seen.add(key);
-            return true;
         });
     }
 
     public static <T> List<T> distinct(Collection<T> list) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().distinct().collect(Collectors.toList());
+        } else {
             return new ArrayList<>();
         }
-        return list.stream().distinct().collect(Collectors.toList());
     }
 
     public static <T> List<T> filter(Collection<T> list, @NotNull Predicate<? super T> predicate) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().filter(predicate).collect(Collectors.toList());
+        } else {
             return new ArrayList<>();
         }
-        return list.stream().filter(predicate).collect(Collectors.toList());
     }
 
     public static <T, R> @NotNull R reduce(@Nullable Collection<T> list, @NotNull R identity, @NotNull BiFunction<R, ? super T, R> accumulator) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().reduce(identity, accumulator, (a, c) -> null);
+        } else {
             return identity;
         }
-        return list.stream().reduce(identity, accumulator, (a, c) -> null);
     }
 
     public static <T> List<List<T>> partition(List<T> list, int size) {
         if (size <= 0) {
             throw new IllegalArgumentException("size must be positive integer");
         }
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            List<List<T>> result = new ArrayList<>(list.size() / size + 1);
+            List<T> currentList = null;
+            for (int i = 0; i < list.size(); i++) {
+                if (i % size == 0) {
+                    currentList = new ArrayList<>(size);
+                    result.add(currentList);
+                }
+                currentList.add(list.get(i));
+            }
+            return result;
+        } else {
             return new ArrayList<>();
         }
-        List<List<T>> result = new ArrayList<>(list.size() / size + 1);
-        List<T> currentList = null;
-        for (int i = 0; i < list.size(); i++) {
-            if (i % size == 0) {
-                currentList = new ArrayList<>(size);
-                result.add(currentList);
-            }
-            currentList.add(list.get(i));
-        }
-        return result;
     }
 
     public static <T, K> Map<K, T> toMap(Collection<T> list, @NotNull Function<? super T, ? extends K> keyExtractor) {
@@ -165,34 +168,38 @@ public class Sugar {
     public static <T, K, V> Map<K, V> toMap(Collection<T> list,
                                             @NotNull Function<? super T, ? extends K> keyExtractor,
                                             @NotNull Function<? super T, ? extends V> valueExtractor) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().collect(Collectors.toMap(keyExtractor, valueExtractor));
+        } else {
             return new HashMap<>();
         }
-        return list.stream().collect(Collectors.toMap(keyExtractor, valueExtractor));
     }
 
     public static <T, K> Map<K, List<T>> groupToMap(Collection<T> list, @NotNull Function<? super T, ? extends K> keyExtractor) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().collect(Collectors.groupingBy(keyExtractor));
+        } else {
             return new HashMap<>();
         }
-        return list.stream().collect(Collectors.groupingBy(keyExtractor));
     }
 
     public static <T, K, V> Map<K, List<V>> groupToMap(Collection<T> list,
                                                        @NotNull Function<? super T, ? extends K> keyExtractor,
                                                        @NotNull Function<? super T, ? extends V> valueExtractor) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().collect(
+                    Collectors.groupingBy(keyExtractor, Collectors.mapping(valueExtractor, Collectors.toList())));
+        } else {
             return new HashMap<>();
         }
-        return list.stream().collect(
-                Collectors.groupingBy(keyExtractor, Collectors.mapping(valueExtractor, Collectors.toList())));
     }
 
     public static <T> boolean includes(Collection<T> list, @NotNull Predicate<? super T> predicate) {
-        if (isEmpty(list)) {
+        if (!isEmpty(list)) {
+            return list.stream().anyMatch(predicate);
+        } else {
             return false;
         }
-        return list.stream().anyMatch(predicate);
     }
 
     @SafeVarargs
@@ -296,14 +303,15 @@ public class Sugar {
     }
 
     private static <K, V> Map<K, V> buildMap(Object... input) {
-        if ((input.length & 1) != 0) {
+        if ((input.length & 1) == 0) {
+            Map<Object, Object> map = new HashMap<>();
+            for (int i = 0; i < input.length; i += 2) {
+                map.put(input[i], input[i + 1]);
+            }
+            return cast(map);
+        } else {
             throw new IllegalArgumentException("length is odd");
         }
-        Map<Object, Object> map = new HashMap<>();
-        for (int i = 0; i < input.length; i += 2) {
-            map.put(input[i], input[i + 1]);
-        }
-        return cast(map);
     }
 
     public static <T> T[] ref(@NotNull T t) {
@@ -321,36 +329,36 @@ public class Sugar {
         return (T) o;
     }
 
-    /**
-     * ActionThrowsException
-     */
-    public interface ATE {
+    public interface ActionThrowsException {
 
         void invoke() throws Throwable;
     }
 
-    /**
-     * ConsumerThrowsException
-     */
-    public interface CTE<T> {
+    public interface ConsumerThrowsException<T> {
 
         void invoke(T target) throws Throwable;
     }
 
-    public static void repeat(int times, @NotNull ATE block) {
-        if (times <= 0) {
+    public static void repeat(int times, @NotNull Sugar.ActionThrowsException block) {
+        if (times > 0) {
+            for (int i = 0; i < times; i++) {
+                invoke(block);
+            }
+        } else {
             throw new IllegalArgumentException("times requires positive integer");
-        }
-        for (int i = 0; i < times; i++) {
-            invoke(block);
         }
     }
 
-    private static void invoke(ATE ate) {
+    private static void invoke(ActionThrowsException action) {
         try {
-            ate.invoke();
+            action.invoke();
         } catch (Throwable ex) {
-            throw new RuntimeException(ex);
+            sneakyThrow(ex);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <E extends Throwable> void sneakyThrow(Throwable ex) throws E {
+        throw (E) ex;
     }
 }

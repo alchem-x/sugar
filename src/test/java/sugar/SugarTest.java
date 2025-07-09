@@ -1,6 +1,6 @@
-package org.jianzhao.sugar;
+package sugar;
 
-import org.jianzhao.sugar.support.Pair;
+import sugar.support.Pair;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,8 +14,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.jianzhao.sugar.Sugar.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static sugar.Sugar.*;
 
 class SugarTest {
 
@@ -41,10 +41,11 @@ class SugarTest {
         };
         ReentrantLock lock = new ReentrantLock();
         Runnable taskWithLock = (Runnable) () -> use(lock, task::run);
-        ExecutorService pool = Executors.newFixedThreadPool(4);
-        repeat(nTask, () -> pool.submit(taskWithLock));
-        cdl.await();
-        pool.shutdown();
+        try (ExecutorService pool = Executors.newFixedThreadPool(4)) {
+            repeat(nTask, () -> pool.submit(taskWithLock));
+            cdl.await();
+            pool.shutdown();
+        }
         assertEquals(10000 * nTask, ref[0]);
     }
 

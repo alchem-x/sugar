@@ -1,4 +1,4 @@
-package org.jianzhao.sugar.support;
+package sugar.support;
 
 import java.util.AbstractMap;
 import java.util.Map;
