@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static sugar.Sugar.*;
+import static sugar.SugarExtra.*;
 
 class SugarTest {
 
